@@ -9,7 +9,11 @@ copyright: Maintained by <a href="https://UynajGI.com">UynajGI</a>.
 
 nav:
   - Home: index.md
-  - Modules: modules.md
+  - Modules:
+      - Introduction: modules.md
+      - Simulation: simulation/index.md
+      - Input/Output: io/index.md
+      - Utility: utils/index.md
 plugins:
   - search
   - mkdocstrings:
