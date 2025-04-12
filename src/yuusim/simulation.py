@@ -1,4 +1,58 @@
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+"""
+`simulation.py` Module Documentation
+====================================
+
+Overview
+--------
+This module provides a comprehensive framework for managing and executing simulations.
+It defines a `SimulationEnvironment` class that handles the initialization, configuration,
+execution, and cleanup of simulation projects. Additionally, it includes a utility function
+`generate_parameter_grid` to generate parameter sets for exploring the parameter space.
+
+Key Features
+------------
+- **Environment Management**: Automatically creates and validates the directory structure
+  for storing simulation data, logs, figures, and configurations.
+- **Configuration Handling**: Loads configuration files, computes parameter hashes, and
+  ensures the consistency of simulation parameters.
+- **Parallel Execution**: Supports both parallel and sequential execution of simulations,
+  with batch processing for improved performance.
+- **Performance Analysis**: Estimates the memory and time usage of a single simulation
+  run and saves the reports for further analysis.
+- **Data Persistence**: Saves simulation results and configurations to files, and provides
+  options for cleaning up temporary files and unused data.
+
+Classes
+-------
+- `SimulationEnvironment`: Represents the simulation environment and manages all aspects
+  of a simulation project.
+
+Functions
+---------
+- `generate_parameter_grid`: Generates a parameter grid for exploring the parameter space
+  based on the given parameter specifications.
+
+Usage Examples
+--------------
+### Initialize and run a simulation
+```python
+from yuusim.simulation import SimulationEnvironment
+import numpy as np
+import time
+
+def func(params):
+    time.sleep(1)
+    return np.random.rand(10)
+
+env = SimulationEnvironment("test_project")
+# Assume there is a valid configuration file
+env.setup("config.toml")
+env.load(func)
+results = env.run(opt=True, force=True)
+env.cleanup()
+```
+"""
+
 import hashlib
 import json
 import sys
@@ -23,23 +77,127 @@ TEMP_DIR = Path(tempfile.gettempdir())
 
 
 class SimulationEnvironment(SimulationEnvironmentProtocol):
+    """
+    A class representing the simulation environment. It manages the initialization,
+    configuration loading, simulation execution, and result saving of a simulation project.
+
+    Attributes
+    ----------
+    BASE_DIRS : ClassVar[list[str]]
+        A list of base directories required for the project.
+    FIGURE_SUBDIRS : ClassVar[list[str]]
+        A list of subdirectories for figures.
+    project_name : str
+        The name of the project.
+    output : Path
+        The absolute path of the output directory.
+    dirs : dict
+        A dictionary containing the paths of various directories in the project.
+    timestamp : str
+        The timestamp when the simulation starts.
+    config : dict
+        The configuration information for the simulation.
+    param_hash : str
+        The hash value of the configuration parameters.
+    func : Callable
+        The main function of the simulation.
+    """
+
     BASE_DIRS: ClassVar[list[str]] = ["data", "logs", "figures", "tmp", "config", "analysis"]
     FIGURE_SUBDIRS: ClassVar[list[str]] = ["svg", "video", "html"]
 
     def __init__(self, project_name: str, output: PathLike = ".") -> None:
+        """
+        Initialize the simulation environment.
+
+        Parameters
+        ----------
+        project_name : str
+            The name of the project.
+        output : PathLike, optional
+            The output directory. Defaults to the current directory.
+        """
         self.project_name = project_name
         self.output = Path(output).absolute()
         self._initialize_folders()
 
     def __repr__(self) -> str:
+        """Return a string representation of the SimulationEnvironment object."""
         return f"SimulationEnvironment(project_name={self.project_name}, save_path={self.dirs['root']})"
 
     def setup(self, config_path: PathLike, **kwargs: Any) -> None:
-        """Setup environment parameters from a configuration file."""
+        """
+        Set up environment parameters from a configuration file.
+
+        Parameters
+        ----------
+        config_path : PathLike
+            The path to the configuration file.
+        **kwargs : Any
+            Additional keyword arguments for setting up logging.
+        """
 
         self._load_config(config_path)
         self._setup_logging(**kwargs)
         self._log_setup_information(config_path)
+
+    def load(self, func: Callable) -> None:
+        """
+        Load the main function for the simulation.
+
+        Parameters
+        ----------
+        func : Callable
+            The main function to be used in the simulation.
+            It should accept a dictionary of parameters as input and return a result.
+            Example: def my_simulation(params: dict) -> Any: ...
+        """
+        self.func = func
+        logger.info(f"Main function loaded: {func.__name__}")
+        logger.info(f"Function signature: {func.__code__.co_varnames}")
+
+    def run(self, force: bool = False, opt: bool = True, **kwargs: Any) -> Any:
+        """
+        Run the main function with provided arguments.
+
+        Parameters
+        ----------
+        force : bool, optional
+            If True, force to run the simulation even if data exists. Defaults to False.
+        opt : bool, optional
+            If True, analyze the performance of a single run. Defaults to True.
+        **kwargs : Any
+            Additional keyword arguments for generating parameter sets.
+
+        Returns
+        -------
+        Any
+            The results of the simulation.
+        """
+        if not force and self._check_existing_data():
+            return
+
+        param_sets = self._generate_parameter_sets(**kwargs)
+        logger.info(f"Running {len(param_sets)} simulations...")
+
+        if opt:
+            self._analyze_single_run_performance(param_sets)
+
+        results = self._execute_simulations(param_sets)
+        logger.success("All simulations completed.")
+
+        self._save_results(results)
+        return results
+
+    def _log_setup_information(self, config_path: PathLike) -> None:
+        """Log information about the setup process."""
+        logger.info(f"Initializing simulation environment for project: {self.project_name}")
+        logger.info(f"Timestamp for this simulation: {self.timestamp}")
+        logger.info(f"Output directory set to: {self.output}")
+        logger.info(f"Parameters loaded from {config_path}")
+        logger.info(f"Parameter hash: {self.param_hash}")
+        logger.info(f"Logging initialized with level: {logger.level}")
+        logger.info("Environment setup complete.")
 
     def _load_config(self, config_path: PathLike) -> None:
         """Load configuration from file and compute parameter hash."""
@@ -65,41 +223,6 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         from yuusim.io.logging import setup_logging
 
         setup_logging(self, **kwargs)
-
-    def _log_setup_information(self, config_path: PathLike) -> None:
-        """Log information about the setup process."""
-        logger.info(f"Initializing simulation environment for project: {self.project_name}")
-        logger.info(f"Timestamp for this simulation: {self.timestamp}")
-        logger.info(f"Output directory set to: {self.output}")
-        logger.info(f"Parameters loaded from {config_path}")
-        logger.info(f"Parameter hash: {self.param_hash}")
-        logger.info(f"Logging initialized with level: {logger.level}")
-        logger.info("Environment setup complete.")
-
-    def load(self, func: Callable) -> None:
-        """
-        Load the main function for the simulation.
-        """
-        self.func = func
-        logger.info(f"Main function loaded: {func.__name__}")
-        logger.info(f"Function signature: {func.__code__.co_varnames}")
-
-    def run(self, force: bool = False, opt: bool = True, **kwargs: Any) -> Any:
-        """Run the main function with provided arguments."""
-        if not force and self._check_existing_data():
-            return
-
-        param_sets = self._generate_parameter_sets(**kwargs)
-        logger.info(f"Running {len(param_sets)} simulations...")
-
-        if opt:
-            self._analyze_single_run_performance(param_sets)
-
-        results = self._execute_simulations(param_sets)
-        logger.success("All simulations completed.")
-
-        self._save_results(results)
-        return results
 
     def _save_results(self, results: ArrayLike) -> None:
         """Save simulation results and configuration to files."""
@@ -156,6 +279,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         )
 
     def _analyze_single_run_performance(self, param_sets: list[dict]) -> None:
+        """Analyze the performance of a single run."""
         sample_params = param_sets[0]
 
         mem_report = self._estimate_memory_usage(sample_params)
@@ -200,9 +324,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         return False
 
     def cleanup(self, keep_data: bool = True, keep_logs: bool = True) -> None:
-        """
-        Clean up temporary files.
-        """
+        """Clean up temporary files."""
         try:
             self._perform_cleanup_operations(keep_data, keep_logs)
         except FileNotFoundError as e:
@@ -217,12 +339,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
 
     @staticmethod
     def _cleanup_directory(directory: Path) -> None:
-        """
-        Helper method to clean up a directory by removing all files.
-
-        Args:
-            directory: Path to the directory to clean
-        """
+        """Helper method to clean up a directory by removing all files."""
         for item in directory.iterdir():
             if item.is_file():
                 item.unlink()
@@ -245,6 +362,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         logger.success("Cleanup completed successfully.")
 
     def _clean_unused(self, path: Path, data_files: list[str]) -> None:
+        """Remove files that are not in the data_files list."""
         for file in path.iterdir():
             if file.stem not in data_files and file.is_file() and self.param_hash not in file.name:
                 file.unlink()
@@ -264,6 +382,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
             raise
 
     def _create_and_validate_dir_structure(self, root: Path) -> None:
+        """Create directory structure and check permissions."""
         # 先检查根目录是否有写权限
         root.mkdir(parents=True, exist_ok=True)
         test_file = root / ".permission_test"
@@ -294,16 +413,21 @@ def generate_parameter_grid(
     """
     Generate parameter grid for parameter space exploration.
 
-    Args:
-        parameters: Dictionary of parameter specifications
-            Example: {
-                'temperature': {'start': 0.1, 'end': 10.0, 'steps': 100, 'log_scale': True},
-                'pressure': {'start': 1.0, 'end': 100.0, 'steps': 50, 'log_scale': False}
-            }
-        base: Base for logarithmic scaling
+    Parameters
+    ----------
+    parameters : dict[str, dict[str, Any]]
+        Dictionary of parameter specifications.
+        Example: {
+            'temperature': {'start': 0.1, 'end': 10.0, 'steps': 100, 'log_scale': True},
+            'pressure': {'start': 1.0, 'end': 100.0, 'steps': 50, 'log_scale': False}
+        }
+    base : int, optional
+        Base for logarithmic scaling. Defaults to 10.
 
-    Returns:
-        Dictionary of parameter arrays
+    Returns
+    -------
+    ParameterGrid
+        Dictionary of parameter arrays.
     """
     return {
         param: np.logspace(
