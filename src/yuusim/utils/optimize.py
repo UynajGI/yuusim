@@ -108,7 +108,7 @@ class OptimizeAnalysis:
             MemoryReport: A report object containing memory usage statistics.
         """
 
-        def wrapped():
+        def wrapped() -> Any:
             return self.func(*args, **kwargs)
 
         # Bug fix: Changed the parameter passing to the function, and now it calls the wrapped function directly

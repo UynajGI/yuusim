@@ -1,3 +1,5 @@
+from typing import Any
+
 from loguru import logger
 
 from yuusim.utils.enums import LogLevel
@@ -83,7 +85,7 @@ def setup_logging(
         raise RuntimeError(error_msg) from e
 
 
-def get_logger():
+def get_logger() -> Any:
     """
     Get the configured logger instance.
 

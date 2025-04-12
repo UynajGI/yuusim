@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import toml
 import yaml
@@ -44,7 +45,7 @@ def _validate_config(config: DictLike) -> None:
         raise ConfigurationError(error_msg)
 
 
-def load_config(config_file: PathLike) -> DictLike:
+def load_config(config_file: PathLike) -> Any:
     """
     Load configuration from a file in the specified format.
 
@@ -70,7 +71,7 @@ def load_config(config_file: PathLike) -> DictLike:
     try:
         load_func = SUPPORTED_FORMATS[file_format][0]
         with open(config_file, encoding="utf-8") as f:
-            config = load_func(f)
+            config = load_func(f)  # type: ignore[call-arg]
         _validate_config(config)
         logger.success(f"Successfully loaded configuration file: {config_file}, format: {file_format}")
     except Exception as e:
@@ -108,7 +109,7 @@ def save_config(config: DictLike, filename: PathLike, file_format: str = "toml",
         filename.parent.mkdir(parents=True, exist_ok=True)
         dump_func = SUPPORTED_FORMATS[file_format][1]
         with open(filename, "w", encoding="utf-8") as f:
-            dump_func(config, f)
+            dump_func(config, f)  # type: ignore[call-arg]
         logger.info(f"Configuration saved to: {filename}, format: {file_format}")
     except PermissionError as e:
         logger.error(f"Permission denied when writing configuration file: {filename}, format: {file_format} - {e!s}")

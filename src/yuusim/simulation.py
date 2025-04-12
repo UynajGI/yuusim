@@ -37,14 +37,14 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
     def __repr__(self) -> str:
         return f"SimulationEnvironment(project_name={self.project_name}, save_path={self.dirs['root']})"
 
-    def setup(self, config_path: PathLike, **kwargs) -> None:
+    def setup(self, config_path: PathLike, **kwargs: Any) -> None:
         """Setup environment parameters from a configuration file."""
 
         self._load_config(config_path)
         self._setup_logging(**kwargs)
         self._log_setup_information(config_path)
 
-    def _load_config(self, config_path: PathLike):
+    def _load_config(self, config_path: PathLike) -> None:
         """Load configuration from file and compute parameter hash."""
         from yuusim.io.config import load_config
 
@@ -63,13 +63,13 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         config_hash = json.dumps(self.config, sort_keys=True) + self.project_name
         self.param_hash = hashlib.sha256(config_hash.encode()).hexdigest()[:8]
 
-    def _setup_logging(self, **kwargs):
+    def _setup_logging(self, **kwargs: Any) -> None:
         """Initialize logging."""
         from yuusim.io.logging import setup_logging
 
         setup_logging(self, **kwargs)
 
-    def _log_setup_information(self, config_path: PathLike):
+    def _log_setup_information(self, config_path: PathLike) -> None:
         """Log information about the setup process."""
         logger.info(f"Initializing simulation environment for project: {self.project_name}")
         logger.info(f"Timestamp for this simulation: {self.timestamp}")
@@ -89,7 +89,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         logger.info(f"Function signature: {func.__code__.co_varnames}")
         logger.info("=" * 20)
 
-    def run(self, force: bool = False, opt: bool = True, **kwargs) -> Any:
+    def run(self, force: bool = False, opt: bool = True, **kwargs: Any) -> Any:
         """Run the main function with provided arguments."""
         if not force and self._check_existing_data():
             return
@@ -115,7 +115,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         save_data(data=results, filename=self.dirs["data"] / filename, metadata=self.config)
         save_config(config=self.config, filename=self.dirs["config"] / filename)
 
-    def _execute_simulations(self, param_sets: list[dict], **kwargs) -> ArrayLike:
+    def _execute_simulations(self, param_sets: list[dict], **kwargs: Any) -> ArrayLike:
         """Execute simulations with batch processing"""
         batch_size = max(1, kwargs.get("batch_size", CPU_COUNT * 100))
         batch_size = min(batch_size, len(param_sets))
@@ -142,13 +142,13 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
     def _execute_sequential(self, param_sets: list[dict], batch_size: int) -> ArrayLike:
         """Execute simulations sequentially with batches"""
         logger.info(f"Using single CPU core (batch size: {batch_size})")
-        results = []
+        results: list[Any] = []
         for i in range(0, len(param_sets), batch_size):
             batch = param_sets[i : i + batch_size]
             results.extend(self.func(params) for params in self._create_progress_bar(batch, i // batch_size + 1))
         return results
 
-    def _create_progress_bar(self, param_sets: list[dict], batch_num: int = 1):
+    def _create_progress_bar(self, param_sets: list[dict], batch_num: int = 1) -> tqdm:
         """Create progress bar for simulation execution"""
         return tqdm(
             param_sets,
@@ -160,7 +160,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
             ncols=100,
         )
 
-    def _analyze_single_run_performance(self, param_sets):
+    def _analyze_single_run_performance(self, param_sets: list[dict]) -> None:
         sample_params = param_sets[0]
 
         mem_report = self._estimate_memory_usage(sample_params)
@@ -169,13 +169,13 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         time_report = self._estimate_time_usage(sample_params)
         self._save_report(time_report, "time")
 
-    def _save_report(self, report: Union[MemoryReport, TimeReport], report_type: str):
+    def _save_report(self, report: Union[MemoryReport, TimeReport], report_type: str) -> None:
         """Save the memory or time report to a file."""
         log_path = self.dirs["analysis"] / f"{report_type}_{self.timestamp}_{self.param_hash}.log"
         with open(log_path, "w") as f:
             f.write(str(report))
 
-    def _generate_parameter_sets(self, **kwargs) -> list[dict]:
+    def _generate_parameter_sets(self, **kwargs: Any) -> list[dict]:
         """Generate parameter sets for each simulation."""
         try:
             param_grid = generate_parameter_grid(self.config["parameters"], kwargs.get("base", 10))
@@ -232,7 +232,8 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
             if item.is_file():
                 item.unlink()
 
-    def _perform_cleanup_operations(self, keep_data, keep_logs):
+    def _perform_cleanup_operations(self, keep_data: bool, keep_logs: bool) -> None:
+        """Perform cleanup operations on temporary files."""
         self._cleanup_directory(self.dirs["tmp"])
         logger.info("Temporary files cleaned up.")
 
@@ -267,7 +268,7 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
             logger.critical(f"Failed to create directory: {e}")
             raise
 
-    def _create_and_validate_dir_structure(self, root):
+    def _create_and_validate_dir_structure(self, root: Path) -> None:
         # 先检查根目录是否有写权限
         root.mkdir(parents=True, exist_ok=True)
         test_file = root / ".permission_test"
@@ -332,7 +333,7 @@ if __name__ == "__main__":
     import tempfile
     import time
 
-    def func(*args, **kwargs):
+    def func(*args: Any, **kwargs: Any) -> Any:
         time.sleep(1)
         return np.random.rand(10)
 

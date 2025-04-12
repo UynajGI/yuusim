@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import h5py
 import numpy as np
@@ -16,7 +16,9 @@ SUPPORTED_FORMATS = {
 }
 
 
-def save_data(data: ArrayLike, filename: PathLike, metadata: Metadatadict, file_format: str = "h5", **kwargs) -> None:
+def save_data(
+    data: ArrayLike, filename: PathLike, metadata: Metadatadict, file_format: str = "h5", **kwargs: Any
+) -> None:
     """Save data and metadata to a file.
 
     Args:
@@ -42,7 +44,7 @@ def save_data(data: ArrayLike, filename: PathLike, metadata: Metadatadict, file_
     _save_data(filename, data, metadata, file_format, **kwargs)
 
 
-def _save_data(filename: Path, data: NDArray, metadata: Metadatadict, file_format: str, **kwargs) -> None:
+def _save_data(filename: Path, data: NDArray, metadata: Metadatadict, file_format: str, **kwargs: Any) -> None:
     """Internal function to save data based on the specified format."""
 
     if file_format not in SUPPORTED_FORMATS:
@@ -58,7 +60,7 @@ def _save_data(filename: Path, data: NDArray, metadata: Metadatadict, file_forma
         raise DataSaveError(file_path=filename, error=str(e)) from e
 
 
-def _save_hdf5(filename: Path, data: NDArray, metadata: Metadatadict, **kwargs) -> None:
+def _save_hdf5(filename: Path, data: NDArray, metadata: Metadatadict, **kwargs: Any) -> None:
     """Save data and metadata to an HDF5 file."""
     with h5py.File(filename, "w") as f:
         if metadata:
