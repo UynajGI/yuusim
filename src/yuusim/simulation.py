@@ -1,10 +1,7 @@
-import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import hashlib
 import json
+import sys
 import tempfile
 from datetime import datetime
 from itertools import product
@@ -78,7 +75,6 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         logger.info(f"Parameter hash: {self.param_hash}")
         logger.info(f"Logging initialized with level: {logger.level}")
         logger.info("Environment setup complete.")
-        logger.info("=" * 20)
 
     def load(self, func: Callable) -> None:
         """
@@ -87,7 +83,6 @@ class SimulationEnvironment(SimulationEnvironmentProtocol):
         self.func = func
         logger.info(f"Main function loaded: {func.__name__}")
         logger.info(f"Function signature: {func.__code__.co_varnames}")
-        logger.info("=" * 20)
 
     def run(self, force: bool = False, opt: bool = True, **kwargs: Any) -> Any:
         """Run the main function with provided arguments."""
