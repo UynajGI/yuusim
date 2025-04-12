@@ -17,6 +17,14 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+dependencies = [
+    "h5py>=3.13.0",
+    "joblib",
+    "loguru",
+    "numpy",
+    "toml>=0.10.2",
+    "tqdm>=4.67.1",
+]
 
 [project.urls]
 Homepage = "https://UynajGI.github.io/yuusim/"
@@ -106,3 +114,7 @@ ignore = [
 
 [tool.ruff.format]
 preview = true
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
